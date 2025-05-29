@@ -18,7 +18,8 @@ client.once("ready", () => {
 client.on("messageCreate", async (message) => {
   if (message.author.id !== patchBotId) return;
 
-  console.log(`Mensaje de PatchBot (${message.author.id})`);
+  console.log("🟡 Mensaje detectado de PatchBot:");
+  console.log(`Contenido del mensaje: "${message.content}"`);
   console.log(`Número de embeds: ${message.embeds.length}`);
 
   if (message.embeds.length > 0) {
@@ -33,12 +34,16 @@ client.on("messageCreate", async (message) => {
     let reenviados = 0;
 
     for (const originalEmbed of message.embeds) {
+      console.log("🔍 Procesando embed:");
+      console.dir(originalEmbed.toJSON(), { depth: null });
+
       const matches = originalEmbed.fields.reduce((count, field) => {
         return count + (keywords.includes(field.name) ? 1 : 0);
       }, 0);
 
+      console.log(`🧩 Campos relevantes encontrados: ${matches}`);
+
       if (matches >= 2) {
-        // Traducir los campos
         const camposTraducidos = originalEmbed.fields.map(field => {
           const nombreTraducido = traducciones[field.name] || field.name;
           return {
@@ -67,25 +72,37 @@ client.on("messageCreate", async (message) => {
           .setTimestamp(originalEmbed.timestamp || null)
           .setFields(camposTraducidos);
 
-        // Verificar si el bot tiene permiso para mencionar a everyone
-        const botMember = await message.guild.members.fetch(client.user.id);
-        const canMentionEveryone = botMember.permissions.has(PermissionsBitField.Flags.MentionEveryone);
+        console.log("📤 Enviando embed traducido:");
+        console.dir(embed.toJSON(), { depth: null });
 
-        if (canMentionEveryone) {
-          await message.channel.send({ content: "@everyone", embeds: [embed] });
-          console.log("✅ Embed reenviado con @everyone");
-        } else {
-          await message.channel.send({ embeds: [embed] });
-          console.log("⚠️ No se tiene permiso para mencionar a @everyone, solo se envió el embed.");
+        try {
+          const botMember = await message.guild.members.fetch(client.user.id);
+          const canMentionEveryone = botMember.permissions.has(PermissionsBitField.Flags.MentionEveryone);
+
+          if (canMentionEveryone) {
+            await message.channel.send({ content: "@everyone", embeds: [embed] });
+            console.log("✅ Embed reenviado con @everyone");
+          } else {
+            await message.channel.send({ embeds: [embed] });
+            console.log("⚠️ No se tiene permiso para mencionar a @everyone, solo se envió el embed.");
+          }
+
+          reenviados++;
+        } catch (err) {
+          console.error("❌ Error al enviar el embed:", err);
         }
-
-        reenviados++;
+      } else {
+        console.log("🚫 Embed ignorado: no contiene suficientes campos relevantes.");
       }
     }
 
     if (reenviados > 0) {
-      await message.delete();
-      console.log(`✅ Mensaje original borrado tras reenviar ${reenviados} embed(s).`);
+      try {
+        await message.delete();
+        console.log(`🗑️ Mensaje original borrado tras reenviar ${reenviados} embed(s).`);
+      } catch (err) {
+        console.error("❌ Error al borrar el mensaje original:", err);
+      }
     } else {
       console.log("❌ Ningún embed parecía juego. No se borra el mensaje.");
     }
@@ -94,7 +111,7 @@ client.on("messageCreate", async (message) => {
 
 client.login(process.env.TOKEN);
 
-
+// Servidor web básico para mantener el bot vivo
 const express = require("express");
 const app = express();
 
@@ -106,4 +123,5 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`🌐 Servidor web activo en el puerto ${PORT}`);
 });
+
 
